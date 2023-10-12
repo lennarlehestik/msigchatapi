@@ -1,0 +1,7 @@
+{
+  "name": "commchatapi",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "lennarlehestik <lehestiklennar@gmail.com>",
+  "license": "MIT"
+}
