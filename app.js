@@ -231,7 +231,7 @@ wss.on('connection', (ws, req) => {
         }
     }, 20000);
 
-    ws.on('message', async (message) => {
+    wss.on('message', async (message) => {
         console.log('Received:', message);
         const {type, payload} = JSON.parse(message);
 
