@@ -16,7 +16,7 @@ app.use(bodyParser.json());
 
 const endpoint = "https://wax.eosusa.io"
 
-const defaultPrivateKey = process.env.PRIVATE_KEY;;
+const defaultPrivateKey = process.env.PRIVATE_KEY;
 const privateKeys = [defaultPrivateKey];
 const signatureProvider = new JsSignatureProvider(privateKeys);
 

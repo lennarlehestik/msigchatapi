@@ -3,5 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "author": "lennarlehestik <lehestiklennar@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.js"
+  }
 }
