@@ -57,7 +57,6 @@ const submitMessage = async(message, accountName, community) => {
 }
 
 
-
 const initialMemoVerification = async (serializedTransaction, expectedMemo) => {
     try {
         const serializedTransactionUint8Array = new Uint8Array(Object.values(serializedTransaction));
@@ -115,7 +114,8 @@ const signatureVerification = async(accountName, serializedTransaction) => {
 const msigVerification = async(accountName, serializedTransaction, community) => {    
     // Check if account is in msig
     const data = await rpc.get_account(community);
-    const permissions = data.permissions[1].required_auth.accounts;
+    console.log(data.permissions)
+    const permissions = data.permissions.filter(perm => perm.perm_name === permission)[0].required_auth.accounts;
     const actorExists = permissions.some(permission => permission.permission.actor === accountName);
 
     console.log("Account in msig:" + actorExists);
@@ -203,6 +203,130 @@ function decrypt(data, communityName) {
     return decrypted;
 }
 
+const checkIfCanDeleteMessages = async (community) => {
+    try {
+        const response = await fetch(`${endpoint}/v1/chain/get_table_rows`, {
+            method: "POST",
+            headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                json: true,
+                code: "chat",
+                table: "delapproval",
+                scope: "chat",
+                lower_bound: community,
+                upper_bound: community
+            }),
+        });
+
+        const data = await response.json();
+        if(data?.rows[0].approved_to_delete == 1){
+            return true
+        }
+        else{
+            return false
+        }
+    } catch (error) {
+        console.error("Error fetching messages:", error);
+        throw error;  // or return an error object if you prefer
+    }
+}
+
+const deleteMessages = async (community, amount) => {
+    try {
+        const result = await api.transact({
+            actions: [{
+                account: 'chat',
+                name: 'delmessages',
+                authorization: [{
+                    actor: 'chat',
+                    permission: 'custom',
+                }],
+                data: {
+                    chat_account: community,
+                    number_of_messages: amount
+                },
+            }],
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
+
+        console.dir(result);
+    } catch (e) {
+        if (e instanceof RpcError) {
+            console.error(JSON.stringify(e.json, null, 2));
+        } else {
+            console.error(e);
+        }
+    }
+}
+
+const deleteCommunity = async (community) => {
+    try {
+        const result = await api.transact({
+            actions: [{
+                account: 'chat',
+                name: 'delchat',
+                authorization: [{
+                    actor: 'chat',
+                    permission: 'custom',
+                }],
+                data: {
+                    chat_account: community,
+                },
+            }],
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
+
+        console.dir(result);
+    } catch (e) {
+        if (e instanceof RpcError) {
+            console.error(JSON.stringify(e.json, null, 2));
+        } else {
+            console.error(e);
+        }
+    }
+}
+
+const editCommunity = async (chat_account, accountName, permission, community_profile_img_url, community_background_img_url, description) => {
+    try {
+        const result = await api.transact({
+            actions: [{
+                account: 'chat',
+                name: 'setchat',
+                authorization: [{
+                    actor: 'chat',
+                    permission: 'custom',
+                }],
+                data: {
+                    chat_account: chat_account,
+                    adder: accountName,
+                    permission: permission,
+                    community_profile_img_url: community_profile_img_url,
+                    community_background_img_url: community_background_img_url,
+                    description: description
+                },
+            }],
+        }, {
+            blocksBehind: 3,
+            expireSeconds: 30,
+        });
+
+        console.dir(result);
+    } catch (e) {
+        if (e instanceof RpcError) {
+            console.error(JSON.stringify(e.json, null, 2));
+        } else {
+            console.error(e);
+        }
+    }
+}
+
 wss.on('connection', (ws, req) => {
     console.log('Client connected');
 
@@ -227,18 +351,18 @@ wss.on('connection', (ws, req) => {
                 console.error("Error sending messages:", error);
             }
         }
-    }, 20000);
+    }, 5000);
 
     ws.on('message', async (message) => {
         console.log('Received:', message);
         const {type, payload} = JSON.parse(message);
 
         if(type == "TRANSACTION_VERIFICATION"){
-            const { serializedTransaction, signatures, accountName, community } = payload;
+            const { serializedTransaction, signatures, accountName, community, permission} = payload;
             try {
                 const userOwnsAccount = await initialMemoVerification(serializedTransaction, memo);
                 console.log(userOwnsAccount)
-                const accountInMsig = await msigVerification(accountName, serializedTransaction, community)
+                const accountInMsig = await msigVerification(accountName, serializedTransaction, community, permission)
                 const userSignedTransaction = await signatureVerification(accountName, serializedTransaction)
 
                 if(accountInMsig && userOwnsAccount && userSignedTransaction) {
@@ -275,6 +399,67 @@ wss.on('connection', (ws, req) => {
                 ws.send(JSON.stringify(messages));
             } catch (error) {
                 console.error("Error submitting message:", error);
+            }
+        } else if(type == "DELETE_MESSAGES") {
+            // Check the verification status before allowing message sending
+            if(!ws.lastVerifiedCommunity) {
+                console.error("User not verified. Cannot delete messages.");
+                ws.send(JSON.stringify({ error: 'User not verified. Cannot delete messages.' }));
+                return;
+            }
+            const { amount, community } = payload;
+            const canDelete = await checkIfCanDeleteMessages(community)
+            if(canDelete) {
+                try{
+                    await deleteMessages(community, amount)
+                    const messages = await fetchMessagesFromChain(community);
+                    ws.send(JSON.stringify(messages));
+                }
+                catch (error) {
+                    console.error("Error deleting messages:", error);
+                    ws.send(JSON.stringify({ error: 'Cannot delete messages.' }));
+                }
+            }
+            else{
+                ws.send(JSON.stringify({ error: 'Cannot delete messages, check if deleting is enabled.' }));
+            }
+        } else if(type == "DELETE_COMMUNITY") {
+            // Check the verification status before allowing message sending
+            if(!ws.lastVerifiedCommunity) {
+                console.error("User not verified. Cannot delete messages.");
+                ws.send(JSON.stringify({ error: 'User not verified. Cannot delete messages.' }));
+                return;
+            }
+            const { community } = payload;
+            const canDelete = await checkIfCanDeleteMessages(community)
+            if(canDelete) {
+                try{
+                    await deleteCommunity(community)
+                    const messages = await fetchMessagesFromChain(community);
+                    ws.send(JSON.stringify(messages));
+                }
+                catch (error) {
+                    console.error("Error deleting messages:", error);
+                    ws.send(JSON.stringify({ error: 'Cannot delete messages.' }));
+                }
+            }
+            else{
+                ws.send(JSON.stringify({ error: 'Cannot delete messages, check if deleting is enabled.' }));
+            }
+        } else if(type == "EDIT_COMMUNITY") {
+            // Check the verification status before allowing message sending
+            if(!ws.lastVerifiedCommunity) {
+                console.error("User not verified. Cannot delete messages.");
+                ws.send(JSON.stringify({ error: 'User not verified. Cannot delete messages.' }));
+                return;
+            }
+            const { accountName, permission, community_profile_img_url, community_background_img_url, description  } = payload;
+            try{
+                editCommunity(ws.lastVerifiedCommunity, accountName, permission, community_profile_img_url, community_background_img_url, description)
+            }
+            catch (error) {
+                console.error("Error editing community:", error);
+                ws.send(JSON.stringify({ error: 'Cannot edit community.' }));
             }
         }
     });
