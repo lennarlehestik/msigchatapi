@@ -111,7 +111,7 @@ const signatureVerification = async(accountName, serializedTransaction) => {
     return isTransactionValid;
 }
 
-const msigVerification = async(accountName, serializedTransaction, community) => {    
+const msigVerification = async(accountName, serializedTransaction, community, permission) => {    
     // Check if account is in msig
     const data = await rpc.get_account(community);
     console.log(data.permissions)
