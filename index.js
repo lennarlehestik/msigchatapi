@@ -461,6 +461,8 @@ wss.on('connection', (ws, req) => {
                 console.error("Error editing community:", error);
                 ws.send(JSON.stringify({ error: 'Cannot edit community.' }));
             }
+        } else if(type == "ping") {
+            console.log("ping received")
         }
     });
 
