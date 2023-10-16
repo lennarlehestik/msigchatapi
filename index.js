@@ -371,6 +371,7 @@ wss.on('connection', (ws, req) => {
                     ws.lastVerifiedCommunity = community;
                     try {
                         const messages = await fetchMessagesFromChain(community);
+                        ws.send(JSON.stringify({ type:"VERIFICATION_SUCCESS", verified: true }));
                         ws.send(JSON.stringify(messages));
                     } catch (error) {
                         console.error("Error sending messages to client:", error);
