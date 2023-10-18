@@ -382,6 +382,7 @@ wss.on('connection', (ws, req) => {
                 
             } catch (error) {
                 console.error(error);
+                ws.send(JSON.stringify({ type: 'FAILED_TO_VERIFY', message:"Failed to verify transaction." }));
                 ws.close(1011, 'Failed to verify transaction');
             }
         } else if(type == "SEND_MESSAGE") {
