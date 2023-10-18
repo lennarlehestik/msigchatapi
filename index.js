@@ -375,15 +375,14 @@ wss.on('connection', (ws, req) => {
                         ws.send(JSON.stringify(messages));
                     } catch (error) {
                         console.error("Error sending messages to client:", error);
-                        ws.send(JSON.stringify({ type: 'FAILED_TO_VERIFY', message:"Failed to verify transaction." }));
                     }
                 } else {
+                    ws.send(JSON.stringify({ type: 'FAILED_TO_VERIFY', message:"Failed to verify transaction." }));
                     ws.close(1008, 'Transaction verification failed or not in msig.');
                 }
                 
             } catch (error) {
                 console.error(error);
-                ws.send(JSON.stringify({ type: 'FAILED_TO_VERIFY', message:"Failed to verify transaction." }));
                 ws.close(1011, 'Failed to verify transaction');
             }
         } else if(type == "SEND_MESSAGE") {
