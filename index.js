@@ -375,6 +375,7 @@ wss.on('connection', (ws, req) => {
                         ws.send(JSON.stringify(messages));
                     } catch (error) {
                         console.error("Error sending messages to client:", error);
+                        ws.send(JSON.stringify({ type: 'FAILED_TO_VERIFY', message:"Failed to verify transaction." }));
                     }
                 } else {
                     ws.close(1008, 'Transaction verification failed or not in msig.');
