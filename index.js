@@ -7,6 +7,7 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const cors = require('cors');
 const WebSocket = require('ws');
 const crypto = require('crypto');
+const util = require('util')
 
 const app = express();
 app.use(cors());
@@ -99,12 +100,20 @@ const initialMemoVerification = async (serializedTransaction, expectedMemo) => {
 
 const signatureVerification = async(accountName, serializedTransaction) => {
     const accountInfo = await rpc.get_account(accountName);
+    console.log(util.inspect(accountInfo, true, 10))
 
     // Extract public keys from the account information
-    const publicKeys = accountInfo.permissions.map(perm => perm.required_auth.keys[0].key);
-
+    const publicKeys = accountInfo.permissions.flatMap(perm => {
+        if (perm.required_auth.keys && perm.required_auth.keys.length > 0) {
+            return perm.required_auth.keys.map(keyObj => keyObj.key);
+        }
+        return [];
+    });
+    console.log("PublicKeys", publicKeys)
     // Determine which keys are required to sign the transaction
-    const requiredKeys = await api.authorityProvider.getRequiredKeys({ transaction: serializedTransaction, availableKeys: publicKeys });
+    const serializedTransactionUint8 = new Uint8Array(serializedTransaction);
+
+    const requiredKeys = await api.authorityProvider.getRequiredKeys({ transaction: serializedTransactionUint8, availableKeys: publicKeys });
     
     // Validate the signatures
     const isTransactionValid = requiredKeys.every(key => signatures.includes(key));
