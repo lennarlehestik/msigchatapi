@@ -360,7 +360,7 @@ wss.on('connection', (ws, req) => {
                 console.error("Error sending messages:", error);
             }
         }
-    }, 5000);
+    }, 2500);
 
     ws.on('message', async (message) => {
         console.log('Received:', message);
